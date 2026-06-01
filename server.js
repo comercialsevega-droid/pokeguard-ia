@@ -1,39 +1,49 @@
 import express from "express";
 import dotenv from "dotenv";
-import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
 
 dotenv.config();
 
 const app = express();
 
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
 app.use(express.static("public"));
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+const ai = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY,
 });
 
 app.post("/analisar", async (req, res) => {
   try {
     const { relato } = req.body;
 
+    if (!relato || relato.trim().length < 5) {
+      return res.status(400).json({
+        erro: "Digite um relato maior para a IA analisar."
+      });
+    }
+
     const prompt = `
-Você é a IA Penal oficial da PokéGuard.
+Você é a IA Penal oficial da PokéGuard, uma polícia de cidade RP Pokémon.
 
-Analise o relato da ocorrência e aplique TODOS os artigos cabíveis.
+Sua função é ler o relato da ocorrência, entender o contexto e aplicar TODOS os artigos cabíveis.
 
-REGRAS IMPORTANTES:
-- Pode aplicar vários artigos na mesma ocorrência.
-- Não aplique apenas um artigo.
-- Entenda linguagem informal, erros de escrita e formas diferentes de relatar.
-- Aplique somente artigos da lista abaixo.
-- Resistência à prisão só deve ser aplicada se o suspeito, depois de perder fuga ou batalha, recusou a prisão ou continuou tentando escapar.
-- Fugir antes de perder a fuga NÃO é resistência à prisão.
-- Batalhar antes de perder a batalha NÃO é resistência à prisão.
-- Se houver roubo em casa/residência, aplique Roubo + Invasão de Propriedade.
-- Se houver uso de Pokémon para crime, fuga ou batalha contra PokéGuard, aplique Art. 58.
-- Se houver 3 ou mais envolvidos praticando crime, aplique Associação Criminosa.
-- Retorne SOMENTE JSON válido.
+REGRAS PRINCIPAIS:
+- Aplique múltiplos artigos quando couber.
+- Não aplique apenas um artigo se houver vários fatos no relato.
+- Entenda linguagem informal, abreviações, erros de escrita e diferentes formas de narrar.
+- Use somente os artigos listados abaixo.
+- Não invente artigos.
+- Resistência à prisão só deve ser aplicada se o suspeito, APÓS perder fuga/batalha ou APÓS receber voz de prisão, recusou a prisão, continuou fugindo ou agrediu.
+- Fuga antes de ser contido NÃO é resistência à prisão.
+- Batalha antes de ser contido NÃO é resistência à prisão.
+- Se houver roubo em casa/residência/propriedade, aplique Roubo + Invasão de Propriedade.
+- Se houver uso de Pokémon em crime, fuga, batalha ou confronto contra a PokéGuard, aplique Art. 58.
+- Se houver 3 ou mais pessoas cometendo crime, aplique Associação Criminosa.
+- Se houver lockpick, item ilegal ou objeto ilegal, aplique Posse de Objetos Ilegais.
+- Se houver clonagem, experimento genético, laboratório ilegal ou Pokémon clonado, aplique Clonagem e Experimentação Genética Ilegal.
+- Se houver fuga de ordem de parada, perseguição ou tentativa de escapar da abordagem, aplique Fuga de Ordem de Parada.
+- Retorne SOMENTE JSON válido, sem texto antes ou depois.
 
 ARTIGOS DISPONÍVEIS:
 
@@ -92,7 +102,7 @@ Art. 63º - Posse de Itens Restritos ou Falsificação - 40 meses - 1200 PokéCo
 Art. 64º - Apostas Ilegais e Rinhas - 50 meses - 8000 PokéCoins
 Art. 65º - Clonagem e Experimentação Genética Ilegal - 100 meses - 100000 PokéCoins
 
-FORMATO DE RESPOSTA:
+FORMATO OBRIGATÓRIO:
 {
   "artigos": [
     {
@@ -100,7 +110,7 @@ FORMATO DE RESPOSTA:
       "crime": "Nome do crime",
       "meses": 0,
       "multa": 0,
-      "motivo": "Por que esse artigo foi aplicado"
+      "motivo": "Explique claramente por que esse artigo foi aplicado"
     }
   ]
 }
@@ -109,18 +119,29 @@ RELATO DA OCORRÊNCIA:
 ${relato}
 `;
 
-    const resposta = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.1,
-      response_format: { type: "json_object" }
+    const resposta = await ai.models.generateContent({
+      model: "gemini-1.5-flash",
+      contents: prompt,
+      config: {
+        temperature: 0.1,
+        responseMimeType: "application/json"
+      }
     });
 
-    const resultado = JSON.parse(resposta.choices[0].message.content);
+    let textoResposta = resposta.text || "";
+
+    textoResposta = textoResposta
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
+
+    const resultado = JSON.parse(textoResposta);
+
     res.json(resultado);
 
   } catch (erro) {
-    console.error(erro);
+    console.error("ERRO NA IA:", erro);
+
     res.status(500).json({
       erro: "Erro ao analisar ocorrência com a IA."
     });
@@ -130,5 +151,5 @@ ${relato}
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log("PokéGuard IA rodando na porta " + PORT);
+  console.log("PokéGuard IA com Gemini rodando na porta " + PORT);
 });
