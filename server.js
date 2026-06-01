@@ -2,6 +2,7 @@ import express from "express";
 import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
+import PDFDocument from "pdfkit";
 
 dotenv.config();
 
@@ -296,6 +297,146 @@ ${relato}
     res.status(500).json({
       erro: "Erro ao analisar ocorrência com a IA."
     });
+  }
+});
+
+app.post("/gerar-pdf", async (req, res) => {
+  try {
+
+    const {
+      nome,
+      rg,
+      relato,
+      artigos,
+      meses_total,
+      multa_total
+    } = req.body;
+
+    const doc = new PDFDocument({
+      margin: 40,
+      size: "A4"
+    });
+
+    const buffers = [];
+
+    doc.on("data", buffers.push.bind(buffers));
+
+    doc.on("end", () => {
+
+      const pdfData = Buffer.concat(buffers);
+
+      res.writeHead(200, {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename=Prisao-${rg}.pdf`,
+        "Content-Length": pdfData.length
+      });
+
+      res.end(pdfData);
+
+    });
+
+    const agora = new Date();
+
+    doc.fontSize(24)
+       .text("CIDADE DE ISLAND KANTO", {
+         align: "center"
+       });
+
+    doc.moveDown(0.3);
+
+    doc.fontSize(16)
+       .text("DEPARTAMENTO DE POLÍCIA JUDICIÁRIA", {
+         align: "center"
+       });
+
+    doc.moveDown(1);
+
+    doc.fontSize(20)
+       .text("RELATÓRIO DE PRISÃO", {
+         align: "center"
+       });
+
+    doc.moveDown(2);
+
+    doc.fontSize(12);
+
+    doc.text(`Data/Hora da Prisão: ${agora.toLocaleString("pt-BR")}`);
+
+    doc.moveDown();
+
+    doc.text(`Nome do Cidadão: ${nome}`);
+
+    doc.moveDown();
+
+    doc.text(`RG: ${rg}`);
+
+    doc.moveDown(2);
+
+    doc.fontSize(16);
+    doc.text("PENA FINAL");
+
+    doc.moveDown();
+
+    doc.fontSize(12);
+    doc.text(`Total de Meses: ${meses_total}`);
+
+    doc.text(
+      `Multa Final: ${Number(multa_total).toLocaleString("pt-BR")} PokéCoins`
+    );
+
+    doc.moveDown(2);
+
+    doc.fontSize(16);
+    doc.text("ARTIGOS APLICADOS");
+
+    doc.moveDown();
+
+    artigos.forEach((artigo) => {
+
+      doc.fontSize(12);
+
+      doc.text(
+        `${artigo.artigo} - ${artigo.crime}`
+      );
+
+      doc.text(
+        `Meses: ${artigo.meses}`
+      );
+
+      doc.text(
+        `Multa: ${Number(artigo.multa).toLocaleString("pt-BR")} PokéCoins`
+      );
+
+      doc.text(
+        `Motivo: ${artigo.motivo}`
+      );
+
+      doc.moveDown();
+
+    });
+
+    doc.moveDown();
+
+    doc.fontSize(16);
+    doc.text("RELATO DA OCORRÊNCIA");
+
+    doc.moveDown();
+
+    doc.fontSize(12);
+    doc.text(relato, {
+      align: "justify"
+    });
+
+    doc.end();
+
+  } catch (erro) {
+
+    console.error(erro);
+
+    res.status(500).json({
+      erro: "Erro ao gerar PDF."
+    });
+
   }
 });
 
