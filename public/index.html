@@ -16,6 +16,7 @@ button:hover{background:#eab308}
 .crime{border-left:5px solid #facc15}
 .success{background:#065f46}
 .danger{background:#7f1d1d}
+.pdf{background:#2563eb;color:white}
 img{max-width:180px;border-radius:10px;margin-top:10px}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
 @media(max-width:800px){.grid{grid-template-columns:1fr}}
@@ -67,6 +68,7 @@ img{max-width:180px;border-radius:10px;margin-top:10px}
 
   <button onclick="analisar()">Analisar com IA</button>
   <button onclick="salvarPrisao()">Salvar prisão no banco</button>
+  <button onclick="gerarPDF()" class="pdf">Gerar PDF Oficial</button>
 
   <div id="resultado"></div>
 </div>
@@ -143,7 +145,22 @@ async function buscarCidadao(){
     return;
   }
 
-  historico.innerHTML = `<h3>${json.prisoes.length} prisão(ões) encontrada(s)</h3>`;
+  let mesesAcumulados = 0;
+  let multaAcumulada = 0;
+
+  json.prisoes.forEach(p=>{
+    mesesAcumulados += Number(p.meses_total || 0);
+    multaAcumulada += Number(p.multa_total || 0);
+  });
+
+  historico.innerHTML = `
+    <h3>${json.prisoes.length} prisão(ões) encontrada(s)</h3>
+    <div class="card">
+      <p><b>Total de prisões:</b> ${json.prisoes.length}</p>
+      <p><b>Meses acumulados:</b> ${mesesAcumulados}</p>
+      <p><b>Multas acumuladas:</b> ${multaAcumulada.toLocaleString("pt-BR")} PokéCoins</p>
+    </div>
+  `;
 
   json.prisoes.forEach(p=>{
     historico.innerHTML += `
@@ -288,6 +305,60 @@ async function salvarPrisao(){
 
   alert("Prisão salva no banco com sucesso.");
   buscarCidadao();
+}
+
+async function gerarPDF(){
+  const nome = document.getElementById("nome").value.trim();
+  const rg = document.getElementById("rg").value.trim();
+  const relato = document.getElementById("relato").value.trim();
+  const oficial = document.getElementById("oficial").value.trim();
+
+  if(!nome || !rg){
+    alert("Busque ou cadastre o cidadão antes de gerar o PDF.");
+    return;
+  }
+
+  if(!relato){
+    alert("Digite o relato da ocorrência.");
+    return;
+  }
+
+  if(artigosAtuais.length === 0){
+    alert("Analise a ocorrência com IA antes de gerar o PDF.");
+    return;
+  }
+
+  const resposta = await fetch("/gerar-pdf", {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({
+      nome,
+      rg,
+      relato,
+      oficial,
+      foto_url: cidadaoAtual ? cidadaoAtual.foto_url : "",
+      artigos: artigosAtuais,
+      meses_total: totaisAtuais.meses,
+      multa_total: totaisAtuais.multa
+    })
+  });
+
+  if(!resposta.ok){
+    alert("Erro ao gerar PDF.");
+    return;
+  }
+
+  const blob = await resposta.blob();
+  const url = window.URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `Prisao-${rg}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  window.URL.revokeObjectURL(url);
 }
 </script>
 
