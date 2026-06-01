@@ -4,131 +4,290 @@
 <meta charset="UTF-8">
 <title>PokéGuard IA Penal</title>
 <style>
-body{
-  font-family: Arial, sans-serif;
-  background:#111827;
-  color:white;
-  padding:20px;
-}
-.container{
-  max-width:900px;
-  margin:auto;
-  background:#1f2937;
-  padding:25px;
-  border-radius:14px;
-}
-h1{color:#facc15}
-label{
-  display:block;
-  margin-top:15px;
-  font-weight:bold;
-}
-input,textarea{
-  width:100%;
-  padding:10px;
-  margin-top:5px;
-  border-radius:8px;
-  border:0;
-  box-sizing:border-box;
-}
-textarea{height:180px}
-button{
-  margin-top:15px;
-  padding:12px 18px;
-  border:0;
-  border-radius:8px;
-  background:#facc15;
-  font-weight:bold;
-  cursor:pointer;
-}
-.card{
-  background:#374151;
-  padding:15px;
-  margin-top:12px;
-  border-radius:10px;
-  border-left:5px solid #facc15;
-}
-.total{
-  background:#065f46;
-  padding:15px;
-  margin-top:15px;
-  border-radius:10px;
-}
+body{font-family:Arial,sans-serif;background:#111827;color:white;padding:20px}
+.container{max-width:1100px;margin:auto;background:#1f2937;padding:25px;border-radius:14px}
+h1,h2,h3{color:#facc15}
+label{display:block;margin-top:12px;font-weight:bold}
+input,textarea{width:100%;padding:10px;margin-top:5px;border-radius:8px;border:0;box-sizing:border-box}
+textarea{height:160px}
+button{margin-top:12px;padding:12px 18px;border:0;border-radius:8px;background:#facc15;font-weight:bold;cursor:pointer}
+button:hover{background:#eab308}
+.card{background:#374151;padding:15px;margin-top:12px;border-radius:10px}
+.crime{border-left:5px solid #facc15}
+.success{background:#065f46}
+.danger{background:#7f1d1d}
+img{max-width:180px;border-radius:10px;margin-top:10px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:800px){.grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 
 <div class="container">
-  <h1>PokéGuard IA Penal</h1>
+<h1>PokéGuard IA Penal</h1>
 
-  <label>Nome do suspeito</label>
-  <input id="nome" placeholder="Ex: João Silva">
+<div class="grid">
+  <div class="card">
+    <h2>Cadastro / Busca de Cidadão</h2>
 
-  <label>RG do suspeito</label>
-  <input id="rg" placeholder="Ex: 12345">
+    <label>RG</label>
+    <input id="rg" placeholder="Digite o RG">
+
+    <button onclick="buscarCidadao()">Buscar RG</button>
+
+    <label>Nome</label>
+    <input id="nome" placeholder="Nome do cidadão">
+
+    <label>Foto do cidadão</label>
+    <input type="file" id="foto" accept="image/*">
+    <br>
+    <img id="preview">
+
+    <button onclick="cadastrarCidadao()">Cadastrar / Atualizar cidadão</button>
+
+    <div id="dadosCidadao"></div>
+  </div>
+
+  <div class="card">
+    <h2>Histórico Criminal</h2>
+    <div id="historico">
+      <p>Nenhum RG pesquisado ainda.</p>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Nova Ocorrência</h2>
+
+  <label>Oficial responsável</label>
+  <input id="oficial" placeholder="Ex: Tenente Djonathan">
 
   <label>Relato da ocorrência</label>
-  <textarea id="relato" placeholder="Descreva a ocorrência completa..."></textarea>
+  <textarea id="relato" placeholder="Descreva tudo que aconteceu..."></textarea>
 
   <button onclick="analisar()">Analisar com IA</button>
+  <button onclick="salvarPrisao()">Salvar prisão no banco</button>
 
-  <h2>Artigos aplicados</h2>
   <div id="resultado"></div>
+</div>
 </div>
 
 <script>
+let cidadaoAtual = null;
+let artigosAtuais = [];
+let fotoBase64 = "";
+let totaisAtuais = { meses:0, multa:0 };
+
+document.getElementById("foto").addEventListener("change", e=>{
+  const file = e.target.files[0];
+  if(!file) return;
+
+  const reader = new FileReader();
+  reader.onload = evt=>{
+    fotoBase64 = evt.target.result;
+    document.getElementById("preview").src = fotoBase64;
+  };
+  reader.readAsDataURL(file);
+});
+
+async function buscarCidadao(){
+  const rg = document.getElementById("rg").value.trim();
+  const dados = document.getElementById("dadosCidadao");
+  const historico = document.getElementById("historico");
+
+  if(!rg){
+    alert("Digite o RG.");
+    return;
+  }
+
+  dados.innerHTML = "<p>Buscando cidadão...</p>";
+  historico.innerHTML = "<p>Buscando histórico...</p>";
+
+  const resposta = await fetch("/buscar-cidadao", {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({ rg })
+  });
+
+  const json = await resposta.json();
+
+  if(json.erro){
+    dados.innerHTML = `<div class="card danger">${json.erro}</div>`;
+    return;
+  }
+
+  if(!json.encontrado){
+    cidadaoAtual = null;
+    dados.innerHTML = `<div class="card danger">RG não encontrado. Cadastre o cidadão.</div>`;
+    historico.innerHTML = "<p>Nenhuma prisão encontrada.</p>";
+    return;
+  }
+
+  cidadaoAtual = json.cidadao;
+
+  document.getElementById("nome").value = cidadaoAtual.nome || "";
+  if(cidadaoAtual.foto_url){
+    document.getElementById("preview").src = cidadaoAtual.foto_url;
+  }
+
+  dados.innerHTML = `
+    <div class="card success">
+      <h3>Cidadão encontrado</h3>
+      <p><b>Nome:</b> ${cidadaoAtual.nome}</p>
+      <p><b>RG:</b> ${cidadaoAtual.rg}</p>
+    </div>
+  `;
+
+  if(!json.prisoes || json.prisoes.length === 0){
+    historico.innerHTML = "<p>Sem prisões registradas.</p>";
+    return;
+  }
+
+  historico.innerHTML = `<h3>${json.prisoes.length} prisão(ões) encontrada(s)</h3>`;
+
+  json.prisoes.forEach(p=>{
+    historico.innerHTML += `
+      <div class="card">
+        <p><b>Data:</b> ${new Date(p.created_at).toLocaleString("pt-BR")}</p>
+        <p><b>Prisão:</b> ${p.meses_total} meses</p>
+        <p><b>Multa:</b> ${Number(p.multa_total).toLocaleString("pt-BR")} PokéCoins</p>
+        <p><b>Oficial:</b> ${p.oficial || "Não informado"}</p>
+      </div>
+    `;
+  });
+}
+
+async function cadastrarCidadao(){
+  const nome = document.getElementById("nome").value.trim();
+  const rg = document.getElementById("rg").value.trim();
+
+  if(!nome || !rg){
+    alert("Preencha nome e RG.");
+    return;
+  }
+
+  const resposta = await fetch("/cadastrar-cidadao", {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({
+      nome,
+      rg,
+      foto_base64: fotoBase64
+    })
+  });
+
+  const json = await resposta.json();
+
+  if(json.erro){
+    alert(json.erro);
+    return;
+  }
+
+  cidadaoAtual = json.cidadao;
+  alert("Cidadão cadastrado/atualizado com sucesso.");
+  buscarCidadao();
+}
+
 async function analisar(){
-  const relato = document.getElementById("relato").value;
+  const relato = document.getElementById("relato").value.trim();
   const resultado = document.getElementById("resultado");
+
+  if(!relato){
+    alert("Digite o relato da ocorrência.");
+    return;
+  }
 
   resultado.innerHTML = "<p>Analisando ocorrência com IA...</p>";
 
-  try{
-    const resposta = await fetch("/analisar", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ relato })
-    });
+  const resposta = await fetch("/analisar", {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({ relato })
+  });
 
-    const dados = await resposta.json();
+  const json = await resposta.json();
 
-    if(dados.erro){
-      resultado.innerHTML = "<p>Erro: " + dados.erro + "</p>";
-      return;
-    }
+  if(json.erro){
+    resultado.innerHTML = `<div class="card danger">${json.erro}</div>`;
+    return;
+  }
 
-    let totalMeses = 0;
-    let totalMulta = 0;
+  artigosAtuais = json.artigos || [];
+  let meses = 0;
+  let multa = 0;
 
-    resultado.innerHTML = "";
+  resultado.innerHTML = "<h2>Artigos aplicados</h2>";
 
-    dados.artigos.forEach(a=>{
-      totalMeses += Number(a.meses || 0);
-      totalMulta += Number(a.multa || 0);
-
-      resultado.innerHTML += `
-        <div class="card">
-          <h3>${a.artigo} - ${a.crime}</h3>
-          <p><b>Prisão:</b> ${a.meses} meses</p>
-          <p><b>Multa:</b> ${Number(a.multa).toLocaleString("pt-BR")} PokéCoins</p>
-          <p><b>Motivo:</b> ${a.motivo}</p>
-        </div>
-      `;
-    });
+  artigosAtuais.forEach(a=>{
+    meses += Number(a.meses || 0);
+    multa += Number(a.multa || 0);
 
     resultado.innerHTML += `
-      <div class="total">
-        <h3>Total</h3>
-        <p><b>Prisão total:</b> ${totalMeses} meses</p>
-        <p><b>Multa total:</b> ${totalMulta.toLocaleString("pt-BR")} PokéCoins</p>
+      <div class="card crime">
+        <h3>${a.artigo} - ${a.crime}</h3>
+        <p><b>Prisão:</b> ${a.meses} meses</p>
+        <p><b>Multa:</b> ${Number(a.multa).toLocaleString("pt-BR")} PokéCoins</p>
+        <p><b>Motivo:</b> ${a.motivo}</p>
       </div>
     `;
+  });
 
-  }catch(e){
-    resultado.innerHTML = "<p>Erro ao conectar com o servidor.</p>";
+  totaisAtuais = { meses, multa };
+
+  resultado.innerHTML += `
+    <div class="card success">
+      <h3>Total</h3>
+      <p><b>Prisão total:</b> ${meses} meses</p>
+      <p><b>Multa total:</b> ${multa.toLocaleString("pt-BR")} PokéCoins</p>
+    </div>
+  `;
+}
+
+async function salvarPrisao(){
+  const nome = document.getElementById("nome").value.trim();
+  const rg = document.getElementById("rg").value.trim();
+  const relato = document.getElementById("relato").value.trim();
+  const oficial = document.getElementById("oficial").value.trim();
+
+  if(!nome || !rg){
+    alert("Preencha ou busque o cidadão primeiro.");
+    return;
   }
+
+  if(!relato){
+    alert("Digite o relato.");
+    return;
+  }
+
+  if(artigosAtuais.length === 0){
+    alert("Analise a ocorrência com IA antes de salvar.");
+    return;
+  }
+
+  const resposta = await fetch("/salvar-prisao", {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({
+      cidadao_id: cidadaoAtual ? cidadaoAtual.id : null,
+      nome,
+      rg,
+      relato,
+      artigos: artigosAtuais,
+      meses_total: totaisAtuais.meses,
+      multa_total: totaisAtuais.multa,
+      oficial
+    })
+  });
+
+  const json = await resposta.json();
+
+  if(json.erro){
+    alert(json.erro);
+    return;
+  }
+
+  alert("Prisão salva no banco com sucesso.");
+  buscarCidadao();
 }
 </script>
 
