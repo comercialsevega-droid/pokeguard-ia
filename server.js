@@ -8,7 +8,7 @@ dotenv.config();
 
 const app = express();
 
-app.use(express.json({ limit: "15mb" }));
+app.use(express.json({ limit: "25mb" }));
 app.use(express.static("public"));
 
 const ai = new GoogleGenAI({
@@ -69,15 +69,35 @@ app.post("/cadastrar-cidadao", async (req, res) => {
     const { nome, rg, foto_base64 } = req.body;
 
     if (!nome || !rg) {
-      return res.status(400).json({ erro: "Nome e RG são obrigatórios." });
+      return res.status(400).json({
+        erro: "Nome e RG são obrigatórios."
+      });
     }
 
     let foto_url = null;
 
+    const { data: cidadaoExistente } = await supabase
+      .from("cidadaos")
+      .select("*")
+      .eq("rg", rg)
+      .maybeSingle();
+
+    if (cidadaoExistente && cidadaoExistente.foto_url) {
+      foto_url = cidadaoExistente.foto_url;
+    }
+
     if (foto_base64) {
-      const base64Data = foto_base64.split(",")[1];
+      const partes = foto_base64.split(",");
+      const base64Data = partes[1];
+
+      if (!base64Data) {
+        return res.status(400).json({
+          erro: "Formato da foto inválido."
+        });
+      }
+
       const contentType = foto_base64.split(";")[0].split(":")[1] || "image/png";
-      const extensao = contentType.includes("jpeg") ? "jpg" : "png";
+      const extensao = contentType.includes("jpeg") || contentType.includes("jpg") ? "jpg" : "png";
       const fileName = `${rg}-${Date.now()}.${extensao}`;
 
       const buffer = Buffer.from(base64Data, "base64");
@@ -89,7 +109,10 @@ app.post("/cadastrar-cidadao", async (req, res) => {
           upsert: true
         });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error("ERRO UPLOAD FOTO:", uploadError);
+        throw uploadError;
+      }
 
       const { data: publicUrlData } = supabase.storage
         .from("fotos-cidadaos")
@@ -120,7 +143,9 @@ app.post("/cadastrar-cidadao", async (req, res) => {
 
   } catch (erro) {
     console.error("ERRO AO CADASTRAR CIDADÃO:", erro);
-    res.status(500).json({ erro: "Erro ao cadastrar cidadão." });
+    res.status(500).json({
+      erro: "Erro ao cadastrar cidadão. Verifique se o bucket fotos-cidadaos permite upload público."
+    });
   }
 });
 
@@ -137,10 +162,30 @@ app.post("/salvar-prisao", async (req, res) => {
       oficial
     } = req.body;
 
+    if (!nome || !rg || !relato || !artigos || artigos.length === 0) {
+      return res.status(400).json({
+        erro: "Dados insuficientes para salvar a prisão."
+      });
+    }
+
+    let cidadaoIdFinal = cidadao_id || null;
+
+    if (!cidadaoIdFinal) {
+      const { data: cidadaoExistente } = await supabase
+        .from("cidadaos")
+        .select("*")
+        .eq("rg", rg)
+        .maybeSingle();
+
+      if (cidadaoExistente) {
+        cidadaoIdFinal = cidadaoExistente.id;
+      }
+    }
+
     const { data, error } = await supabase
       .from("prisoes")
       .insert({
-        cidadao_id,
+        cidadao_id: cidadaoIdFinal,
         nome,
         rg,
         relato,
@@ -161,7 +206,9 @@ app.post("/salvar-prisao", async (req, res) => {
 
   } catch (erro) {
     console.error("ERRO AO SALVAR PRISÃO:", erro);
-    res.status(500).json({ erro: "Erro ao salvar prisão." });
+    res.status(500).json({
+      erro: "Erro ao salvar prisão."
+    });
   }
 });
 
@@ -341,7 +388,6 @@ app.post("/gerar-pdf", async (req, res) => {
     const pageWidth = doc.page.width;
     const pageHeight = doc.page.height;
 
-    // Fundo do PDF
     doc.image(fundoBuffer, 0, 0, {
       width: pageWidth,
       height: pageHeight
@@ -349,9 +395,7 @@ app.post("/gerar-pdf", async (req, res) => {
 
     const agora = new Date();
 
-    // Mantém a posição dos textos, mas sem escrever o cabeçalho antigo
     doc.y = 170;
-
     doc.fontSize(9).fillColor("black");
 
     doc.text(`Data/Hora da Prisão: ${agora.toLocaleString("pt-BR")}`);
