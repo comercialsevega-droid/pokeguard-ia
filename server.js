@@ -367,7 +367,7 @@ ${relato}
 
     const textoResposta = resposta.choices[0].message.content;
     const resultado = JSON.parse(textoResposta);
-    resultado.artigos = validarArtigosComRelato(relato, resultado.artigos || []);
+    res.json(resultado);
 
     res.json(resultado);
 
