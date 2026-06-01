@@ -261,6 +261,15 @@ REGRAS ESPECÍFICAS:
 - Resistência sem violência:
   Só aplicar se após voz de prisão/derrota houve recusa, tentativa de fuga ou não aceitou prisão.
 
+  REGRAS DE DIFERENCIAÇÃO IMPORTANTES:
+- Drogas, entorpecentes, itens ilícitos, lockpicks, objetos ilegais ou produtos proibidos NÃO são lavagem de dinheiro.
+- Drogas ou entorpecentes devem ser tratados como Art. 51 - Posse de Objetos Ilegais, salvo se houver artigo específico sobre drogas.
+- Só aplique Art. 27 - Alteração de notas ou lavagem de dinheiro se o relato mencionar claramente dinheiro sujo, notas roubadas, troca de notas, lavagem, dinheiro de origem criminosa ou tentativa de limpar dinheiro.
+- Não associe automaticamente "produto ilegal" com lavagem de dinheiro.
+- Se o relato disser apenas que a pessoa estava com drogas, substâncias ilegais, itens ilegais ou lockpick, aplique Art. 51.
+- Se houver venda/compra de produto criminoso, aplique Art. 23 - Receptação, não lavagem de dinheiro.
+- Se houver dinheiro sujo + tentativa de trocar/limpar o dinheiro, aplique Art. 27.
+
 ARTIGOS DISPONÍVEIS:
 Art. 8º - Homicídio Doloso - Quando há intenção de matar - 50 meses - 4500 PokéCoins
 Art. 9º - Homicídio Culposo - Quando não há intenção de matar - 40 meses - 4000 PokéCoins
@@ -278,7 +287,7 @@ Art. 21º - Tentativa de Furto/Roubo - Tentativa de furtar ou roubar - 20 meses 
 Art. 23º - Receptação - Produto de origem criminosa - 20 meses - 5500 PokéCoins
 Art. 24º - Fraude - Enganar para obter ganho ilícito - 20 meses - 1500 PokéCoins
 Art. 25º - Invasão de Propriedade e Privacidade - Entrar em terreno alheio, casa ou privacidade - 15 meses - 2500 PokéCoins
-Art. 27º - Lavagem de dinheiro - Troca de notas roubadas por válidas - 25 meses - 6500 PokéCoins
+Art. 27º - Alteração de notas ou lavagem de dinheiro - SOMENTE quando houver troca de notas roubadas, dinheiro sujo, lavagem ou tentativa de limpar dinheiro de origem criminosa - 25 meses - 6500 PokéCoins
 Art. 28º - Bater e Fugir - Fugir após colisão - 0 meses - 3000 PokéCoins
 Art. 29º - Fuga de Ordem de Parada Imprudente - Fugir de ordem de parada, perseguição ou manobra perigosa - 15 meses - 3000 PokéCoins
 Art. 30º - Trafegar fora da via/local impróprio - 0 meses - 1500 PokéCoins
@@ -301,7 +310,7 @@ Art. 47º - Abrigar fugitivo - Esconder fugitivo - 15 meses - 1500 PokéCoins
 Art. 48º - Perturbação do Sossego - Barulho incômodo - 0 meses - 1000 PokéCoins
 Art. 49º - Perturbação Sonora - Som alto em local proibido - 0 meses - 3000 PokéCoins
 Art. 50º - Obstrução Facial - Máscara que impede identificação - 0 meses - 4500 PokéCoins
-Art. 51º - Posse de Objetos Ilegais - Lockpick ou item ilegal - 0 meses - 6500 PokéCoins
+Art. 51º - Posse de Objetos Ilegais - Portar lockpick, drogas, entorpecentes, substâncias ilegais, item ilegal, objeto ilegal ou qualquer item proibido - 0 meses - 6500 PokéCoins
 Art. 52º - Importunação - Comportamento impróprio persistente - 15 meses - 3000 PokéCoins
 Art. 53º - Estabelecimento Irregular - Sem registro ou higiene - 0 meses - 5000 PokéCoins
 Art. 54º - Batalha Pokémon em Local Proibido - Batalha em local proibido - 0 meses - 0 PokéCoins
@@ -352,7 +361,7 @@ ${relato}
           content: prompt
         }
       ],
-      temperature: 0.1,
+      temperature: 0,
       response_format: { type: "json_object" }
     });
 
@@ -370,133 +379,6 @@ ${relato}
     });
   }
 });
-
-function normalizarTexto(texto) {
-  return String(texto || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^\w\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function contemAlgum(texto, termos) {
-  return termos.some(t => texto.includes(normalizarTexto(t)));
-}
-
-function validarArtigosComRelato(relatoOriginal, artigos) {
-  const texto = normalizarTexto(relatoOriginal);
-
-  return artigos.filter(a => {
-    const artigo = normalizarTexto(a.artigo);
-    const crime = normalizarTexto(a.crime);
-
-    if (artigo.includes("8") || crime.includes("homicidio doloso")) {
-      return contemAlgum(texto, ["matou", "assassinou", "executou", "homicidio doloso", "intencao de matar"]);
-    }
-
-    if (artigo.includes("9") || crime.includes("homicidio culposo")) {
-      return contemAlgum(texto, ["matou sem querer", "sem intencao", "acidentalmente matou", "homicidio culposo"]);
-    }
-
-    if (artigo.includes("10") || crime.includes("funcionario publico")) {
-      return contemAlgum(texto, ["matou pokeguard", "matou policial", "matou oficial", "matou funcionario", "matou medico"]);
-    }
-
-    if (artigo.includes("11") || crime.includes("tentativa de homicidio")) {
-      return contemAlgum(texto, ["tentou matar", "quase matou", "tentativa de homicidio", "atentou contra a vida"]);
-    }
-
-    if (artigo.includes("12") || crime.includes("agressao")) {
-      return contemAlgum(texto, ["agrediu", "bateu", "soco", "chute", "espancou", "atacou fisicamente", "feriu"]);
-    }
-
-    if (artigo.includes("13") || crime.includes("odio")) {
-      return contemAlgum(texto, ["preconceito", "racismo", "discriminacao", "crime de odio"]);
-    }
-
-    if (artigo.includes("14") || crime.includes("sequestro")) {
-      return contemAlgum(texto, ["sequestro", "sequestrou", "carcere", "privou liberdade"]);
-    }
-
-    if (artigo.includes("15") || crime.includes("refem")) {
-      return contemAlgum(texto, ["refem", "refens", "fez refem", "manteve refem"]);
-    }
-
-    if (artigo.includes("17") || crime.includes("ameaca")) {
-      return contemAlgum(texto, ["ameacou", "ameaca", "intimidou"]);
-    }
-
-    if (artigo.includes("18") || crime.includes("ameaca grave")) {
-      return contemAlgum(texto, ["ameacou matar", "ameaca grave", "reincidencia de ameaca"]);
-    }
-
-    if (artigo.includes("19") || crime.includes("furto")) {
-      return contemAlgum(texto, ["furto", "furtou", "subtraiu sem violencia", "pegou sem permissao"]);
-    }
-
-    if (artigo.includes("20") || crime.includes("roubo")) {
-      return contemAlgum(texto, ["roubo", "roubou", "assalto", "assaltou", "subtraiu com violencia", "subtraiu com ameaca"]);
-    }
-
-    if (artigo.includes("21") || crime.includes("tentativa")) {
-      return contemAlgum(texto, ["tentou roubar", "tentativa de roubo", "tentou furtar", "tentativa de furto"]);
-    }
-
-    if (artigo.includes("25") || crime.includes("invasao")) {
-      return contemAlgum(texto, ["casa", "residencia", "propriedade", "terreno", "invadiu", "invasao"]);
-    }
-
-    if (artigo.includes("29") || crime.includes("fuga")) {
-      return contemAlgum(texto, ["fugiu", "fuga", "evadiu", "perseguicao", "ordem de parada", "nao parou", "tentou escapar"]);
-    }
-
-    if (artigo.includes("33") || crime.includes("desacato")) {
-      return contemAlgum(texto, ["desacato", "xingou", "ofendeu", "humilhou", "desrespeitou"]);
-    }
-
-    if (artigo.includes("34") || crime.includes("desobediencia")) {
-      return contemAlgum(texto, ["desobedeceu", "nao obedeceu", "ignorou ordem", "ordem direta"]);
-    }
-
-    if (artigo.includes("35") || crime.includes("resistencia")) {
-      const posDerrota = contemAlgum(texto, ["apos perder", "depois de perder", "apos ser contido", "depois de ser contido", "voz de prisao"]);
-      const recusou = contemAlgum(texto, ["recusou", "nao aceitou", "nao quis ser preso", "continuou fugindo", "tentou escapar", "agrediu apos"]);
-      return posDerrota && recusou;
-    }
-
-    if (artigo.includes("40") || crime.includes("obstrucao")) {
-      return contemAlgum(texto, ["obstruiu", "atrapalhou", "destruiu evidencia", "escondeu prova", "impediu abordagem"]);
-    }
-
-    if (artigo.includes("41") || crime.includes("associacao")) {
-      const grupo = contemAlgum(texto, ["3 individuos", "tres individuos", "grupo", "quadrilha", "organizacao criminosa"]);
-      const crimeBase = contemAlgum(texto, ["roubo", "furto", "fuga", "crime", "assalto"]);
-      return grupo && crimeBase;
-    }
-
-    if (artigo.includes("51") || crime.includes("objetos ilegais")) {
-      return contemAlgum(texto, ["lockpick", "lockpicks", "item ilegal", "itens ilegais", "objeto ilegal"]);
-    }
-
-    if (artigo.includes("58") || crime.includes("pokemon para atividade criminosa")) {
-      const poke = contemAlgum(texto, ["pokemon", "pokémon", "batalha", "batalhou"]);
-      const crimeBase = contemAlgum(texto, ["roubo", "furto", "fuga", "escapar", "crime", "pokeguard"]);
-      return poke && crimeBase;
-    }
-
-    if (artigo.includes("63") || crime.includes("itens restritos")) {
-      return contemAlgum(texto, ["master ball", "item restrito", "itens restritos", "item tatico", "falsificacao"]);
-    }
-
-    if (artigo.includes("65") || crime.includes("clonagem")) {
-      return contemAlgum(texto, ["clonagem", "clonado", "clonou", "genetica", "experimento genetico", "laboratorio ilegal"]);
-    }
-
-    return true;
-  });
-}
 
 app.post("/gerar-pdf", async (req, res) => {
   try {
