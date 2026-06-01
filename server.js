@@ -302,7 +302,6 @@ ${relato}
 
 app.post("/gerar-pdf", async (req, res) => {
   try {
-
     const {
       nome,
       rg,
@@ -311,6 +310,12 @@ app.post("/gerar-pdf", async (req, res) => {
       meses_total,
       multa_total
     } = req.body;
+
+    const fundoUrl = "https://raw.githubusercontent.com/djonikipper-lab/Penal/c66302107092104ebf236824e0513ad049c64f70/Fundo%20Penal.png";
+
+    const fundoResponse = await fetch(fundoUrl);
+    const fundoArrayBuffer = await fundoResponse.arrayBuffer();
+    const fundoBuffer = Buffer.from(fundoArrayBuffer);
 
     const doc = new PDFDocument({
       margin: 40,
@@ -322,7 +327,6 @@ app.post("/gerar-pdf", async (req, res) => {
     doc.on("data", buffers.push.bind(buffers));
 
     doc.on("end", () => {
-
       const pdfData = Buffer.concat(buffers);
 
       res.writeHead(200, {
@@ -332,111 +336,76 @@ app.post("/gerar-pdf", async (req, res) => {
       });
 
       res.end(pdfData);
+    });
 
+    const pageWidth = doc.page.width;
+    const pageHeight = doc.page.height;
+
+    // Fundo do PDF
+    doc.image(fundoBuffer, 0, 0, {
+      width: pageWidth,
+      height: pageHeight
     });
 
     const agora = new Date();
 
-    doc.fontSize(24)
-       .text("CIDADE DE ISLAND KANTO", {
-         align: "center"
-       });
+    // Mantém a posição dos textos, mas sem escrever o cabeçalho antigo
+    doc.y = 170;
 
-    doc.moveDown(0.3);
-
-    doc.fontSize(16)
-       .text("DEPARTAMENTO DE POLÍCIA JUDICIÁRIA", {
-         align: "center"
-       });
-
-    doc.moveDown(1);
-
-    doc.fontSize(20)
-       .text("RELATÓRIO DE PRISÃO", {
-         align: "center"
-       });
-
-    doc.moveDown(2);
-
-    doc.fontSize(12);
+    doc.fontSize(9).fillColor("black");
 
     doc.text(`Data/Hora da Prisão: ${agora.toLocaleString("pt-BR")}`);
-
-    doc.moveDown();
+    doc.moveDown(0.5);
 
     doc.text(`Nome do Cidadão: ${nome}`);
-
-    doc.moveDown();
+    doc.moveDown(0.5);
 
     doc.text(`RG: ${rg}`);
+    doc.moveDown(1.4);
 
-    doc.moveDown(2);
+    doc.fontSize(11).text("PENA FINAL");
+    doc.moveDown(0.5);
 
-    doc.fontSize(16);
-    doc.text("PENA FINAL");
-
-    doc.moveDown();
-
-    doc.fontSize(12);
+    doc.fontSize(9);
     doc.text(`Total de Meses: ${meses_total}`);
+    doc.text(`Multa Final: ${Number(multa_total).toLocaleString("pt-BR")} PokéCoins`);
 
-    doc.text(
-      `Multa Final: ${Number(multa_total).toLocaleString("pt-BR")} PokéCoins`
-    );
+    doc.moveDown(1.3);
 
-    doc.moveDown(2);
-
-    doc.fontSize(16);
-    doc.text("ARTIGOS APLICADOS");
-
-    doc.moveDown();
+    doc.fontSize(11).text("ARTIGOS APLICADOS");
+    doc.moveDown(0.5);
 
     artigos.forEach((artigo) => {
+      doc.fontSize(8.5);
 
-      doc.fontSize(12);
+      doc.text(`${artigo.artigo} - ${artigo.crime}`);
+      doc.text(`Meses: ${artigo.meses}`);
+      doc.text(`Multa: ${Number(artigo.multa).toLocaleString("pt-BR")} PokéCoins`);
+      doc.text(`Motivo: ${artigo.motivo}`, {
+        width: 500
+      });
 
-      doc.text(
-        `${artigo.artigo} - ${artigo.crime}`
-      );
-
-      doc.text(
-        `Meses: ${artigo.meses}`
-      );
-
-      doc.text(
-        `Multa: ${Number(artigo.multa).toLocaleString("pt-BR")} PokéCoins`
-      );
-
-      doc.text(
-        `Motivo: ${artigo.motivo}`
-      );
-
-      doc.moveDown();
-
+      doc.moveDown(0.6);
     });
 
-    doc.moveDown();
+    doc.moveDown(0.5);
 
-    doc.fontSize(16);
-    doc.text("RELATO DA OCORRÊNCIA");
+    doc.fontSize(11).text("RELATO DA OCORRÊNCIA");
+    doc.moveDown(0.5);
 
-    doc.moveDown();
-
-    doc.fontSize(12);
-    doc.text(relato, {
-      align: "justify"
+    doc.fontSize(8.5).text(relato, {
+      align: "justify",
+      width: 500
     });
 
     doc.end();
 
   } catch (erro) {
-
-    console.error(erro);
+    console.error("ERRO AO GERAR PDF:", erro);
 
     res.status(500).json({
       erro: "Erro ao gerar PDF."
     });
-
   }
 });
 
