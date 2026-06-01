@@ -221,90 +221,117 @@ app.post("/analisar", async (req, res) => {
     const prompt = `
 Você é a IA Penal oficial da PokéGuard, uma polícia de cidade RP Pokémon.
 
-Leia o relato da ocorrência e aplique TODOS os artigos cabíveis.
+Sua função NÃO é adivinhar crimes.
+Sua função é LER o relato, EXTRAIR fatos claros e aplicar SOMENTE os artigos que possuam evidência direta ou contextual forte.
 
-REGRAS PRINCIPAIS:
-- Aplique múltiplos artigos quando couber.
-- Nunca aplique apenas um artigo se houver vários fatos no relato.
-- Entenda linguagem informal, abreviações, erros de escrita e diferentes formas de narrar.
-- Use somente os artigos listados abaixo.
-- Não invente artigos.
-- Resistência à prisão só deve ser aplicada se o suspeito, APÓS perder fuga/batalha ou APÓS receber voz de prisão, recusou a prisão, continuou fugindo ou agrediu.
-- Fuga antes de ser contido NÃO é resistência à prisão.
-- Batalha antes de ser contido NÃO é resistência à prisão.
-- Se houver roubo em casa/residência/propriedade, aplique Roubo + Invasão de Propriedade.
-- Se houver uso de Pokémon em crime, fuga, batalha ou confronto contra a PokéGuard, aplique Art. 58.
-- Se houver 3 ou mais pessoas cometendo crime, aplique Associação Criminosa.
-- Se houver lockpick, item ilegal ou objeto ilegal, aplique Posse de Objetos Ilegais.
-- Se houver clonagem, experimento genético, laboratório ilegal ou Pokémon clonado, aplique Clonagem e Experimentação Genética Ilegal.
-- Se houver fuga de ordem de parada, perseguição ou tentativa de escapar da abordagem, aplique Fuga de Ordem de Parada.
-- Retorne SOMENTE JSON válido, sem markdown.
+PROCESSO OBRIGATÓRIO:
+1. Leia o relato inteiro.
+2. Extraia os fatos concretos narrados.
+3. Compare os fatos com os artigos.
+4. Aplique apenas artigos que tenham base clara no relato.
+5. Não aplique artigo por suposição.
+6. Não aplique artigo só porque "poderia ter acontecido".
+
+REGRAS DE SEGURANÇA:
+- Se o relato não mencionar um fato, NÃO aplique o artigo.
+- Se houver dúvida, NÃO aplique.
+- Não invente violência se o relato só fala em fuga.
+- Não invente ameaça se o relato só fala em roubo simples.
+- Não invente associação criminosa se o relato não indicar 3 ou mais pessoas.
+- Não invente resistência à prisão se o relato não indicar recusa APÓS derrota ou APÓS voz de prisão.
+- Não aplique desacato sem xingamento, ofensa ou humilhação clara.
+- Não aplique agressão sem agressão física clara.
+- Não aplique ameaça sem ameaça clara.
+- Não aplique uso de Pokémon se o relato não citar Pokémon, batalha, combate Pokémon ou uso de Pokémon.
+- Não aplique clonagem se não houver clonagem, experimento genético, laboratório ilegal ou Pokémon clonado.
+- Não aplique itens ilegais se não houver lockpick, item ilegal, objeto ilegal ou item restrito.
+- Não aplique invasão se não houver casa, residência, propriedade, terreno ou entrada indevida.
+
+REGRAS ESPECÍFICAS:
+- Roubo em casa/residência/propriedade = Art. 20 + Art. 25.
+- Furto em casa/residência/propriedade = Art. 19 + Art. 25.
+- Tentativa de roubo/furto = Art. 21.
+- Fuga de ordem de parada/perseguição = Art. 29.
+- Uso de Pokémon para fugir, batalhar ou auxiliar crime = Art. 58.
+- 3 ou mais pessoas cometendo crime = Art. 41.
+- Resistência à prisão:
+  Só aplicar se o relato disser que, depois de perder fuga/batalha ou depois da voz de prisão, recusou a prisão, continuou fugindo, tentou escapar ou agrediu.
+- Resistência com violência:
+  Só aplicar se após voz de prisão/derrota houve agressão, ataque ou violência.
+- Resistência sem violência:
+  Só aplicar se após voz de prisão/derrota houve recusa, tentativa de fuga ou não aceitou prisão.
 
 ARTIGOS DISPONÍVEIS:
-Art. 8º - Homicídio Doloso - 50 meses - 4500 PokéCoins
-Art. 9º - Homicídio Culposo - 40 meses - 4000 PokéCoins
-Art. 10º - Homicídio contra Funcionário Público - 60 meses - 10000 PokéCoins
-Art. 11º - Tentativa de Homicídio - 20 meses - 3000 PokéCoins
-Art. 12º - Agressão Física - 10 meses - 7000 PokéCoins
-Art. 13º - Crime de Ódio - 30 meses - 5000 PokéCoins
-Art. 14º - Sequestro e Cárcere Privado - 50 meses - 10000 PokéCoins
-Art. 15º - Fazer Reféns - 50 meses - 8000 PokéCoins
-Art. 17º - Crime de Ameaça - 0 meses - 3000 PokéCoins
-Art. 18º - Crime de Ameaça Grave - 10 meses - 2000 PokéCoins
-Art. 19º - Furto - 15 meses - 4000 PokéCoins
-Art. 20º - Roubo - 20 meses - 5000 PokéCoins
-Art. 21º - Tentativa de Furto/Roubo - 20 meses - 3500 PokéCoins
-Art. 23º - Receptação - 20 meses - 5500 PokéCoins
-Art. 24º - Fraude - 20 meses - 1500 PokéCoins
-Art. 25º - Invasão de Propriedade e Privacidade - 15 meses - 2500 PokéCoins
-Art. 27º - Alteração de notas ou lavagem de dinheiro - 25 meses - 6500 PokéCoins
-Art. 28º - Bater e Fugir - 0 meses - 3000 PokéCoins
-Art. 29º - Fuga de Ordem de Parada Imprudente - 15 meses - 3000 PokéCoins
+Art. 8º - Homicídio Doloso - Quando há intenção de matar - 50 meses - 4500 PokéCoins
+Art. 9º - Homicídio Culposo - Quando não há intenção de matar - 40 meses - 4000 PokéCoins
+Art. 10º - Homicídio contra Funcionário Público - Contra Hospital, Neospark ou PokéGuard - 60 meses - 10000 PokéCoins
+Art. 11º - Tentativa de Homicídio - Tentou matar alguém - 20 meses - 3000 PokéCoins
+Art. 12º - Agressão Física - Agressão corporal sem intenção de matar - 10 meses - 7000 PokéCoins
+Art. 13º - Crime de Ódio - Preconceito ou aversão - 30 meses - 5000 PokéCoins
+Art. 14º - Sequestro e Cárcere Privado - Impedir liberdade de ir e vir - 50 meses - 10000 PokéCoins
+Art. 15º - Fazer Reféns - Reter alguém como garantia - 50 meses - 8000 PokéCoins
+Art. 17º - Crime de Ameaça - Ameaçar outro de crime - 0 meses - 3000 PokéCoins
+Art. 18º - Crime de Ameaça Grave - Ameaça grave ou reincidência - 10 meses - 2000 PokéCoins
+Art. 19º - Furto - Subtração sem violência ou ameaça - 15 meses - 4000 PokéCoins
+Art. 20º - Roubo - Subtração com violência ou ameaça - 20 meses - 5000 PokéCoins
+Art. 21º - Tentativa de Furto/Roubo - Tentativa de furtar ou roubar - 20 meses - 3500 PokéCoins
+Art. 23º - Receptação - Produto de origem criminosa - 20 meses - 5500 PokéCoins
+Art. 24º - Fraude - Enganar para obter ganho ilícito - 20 meses - 1500 PokéCoins
+Art. 25º - Invasão de Propriedade e Privacidade - Entrar em terreno alheio, casa ou privacidade - 15 meses - 2500 PokéCoins
+Art. 27º - Lavagem de dinheiro - Troca de notas roubadas por válidas - 25 meses - 6500 PokéCoins
+Art. 28º - Bater e Fugir - Fugir após colisão - 0 meses - 3000 PokéCoins
+Art. 29º - Fuga de Ordem de Parada Imprudente - Fugir de ordem de parada, perseguição ou manobra perigosa - 15 meses - 3000 PokéCoins
 Art. 30º - Trafegar fora da via/local impróprio - 0 meses - 1500 PokéCoins
 Art. 31º - Veículo sem condições de uso - 0 meses - 2500 PokéCoins
 Art. 32º - Corrida/Racha ilegal - 20 meses - 5000 PokéCoins
-Art. 33º - Desacato - 15 meses - 4000 PokéCoins
-Art. 34º - Desobediência - 15 meses - 4000 PokéCoins
-Art. 35º - Resistência à Prisão sem violência - 15 meses - 2500 PokéCoins
-Art. 35º - Resistência à Prisão com violência/agressão - 25 meses - 3000 PokéCoins
+Art. 33º - Desacato - Desrespeitar ou humilhar funcionário público - 15 meses - 4000 PokéCoins
+Art. 34º - Desobediência - Desobedecer ordem direta - 15 meses - 4000 PokéCoins
+Art. 35º - Resistência à Prisão sem violência - Recusar prisão após detido, sem violência - 15 meses - 2500 PokéCoins
+Art. 35º - Resistência à Prisão com violência/agressão - Recusar prisão após detido, com violência - 25 meses - 3000 PokéCoins
 Art. 36º - Falsa denúncia - 15 meses - 1500 PokéCoins
 Art. 36º - Trote - 25 meses - 2000 PokéCoins
-Art. 40º - Obstrução da Justiça - 20 meses - 2500 PokéCoins
-Art. 41º - Associação Criminosa - 20 meses - 3000 PokéCoins
-Art. 42º - Promover ou Facilitar Fuga - 15 meses - 3000 PokéCoins
-Art. 43º - Usurpação de Função - 25 meses - 4000 PokéCoins
-Art. 44º - Falsidade Ideológica - 25 meses - 4000 PokéCoins
+Art. 40º - Obstrução da Justiça - Esconder/destruir provas ou atrapalhar polícia - 20 meses - 2500 PokéCoins
+Art. 41º - Associação Criminosa - 3 ou mais pessoas para cometer crimes - 20 meses - 3000 PokéCoins
+Art. 42º - Promover ou Facilitar Fuga - Ajudar fugitivo a escapar - 15 meses - 3000 PokéCoins
+Art. 43º - Usurpação de Função - Se passar por oficial - 25 meses - 4000 PokéCoins
+Art. 44º - Falsidade Ideológica - Falsa identidade - 25 meses - 4000 PokéCoins
 Art. 45º - Prevaricação - 20 meses - 5000 PokéCoins
-Art. 46º - Incitação ao Crime - 20 meses - 2500 PokéCoins
-Art. 47º - Abrigar fugitivo - 15 meses - 1500 PokéCoins
-Art. 48º - Perturbação do Sossego - 0 meses - 1000 PokéCoins
-Art. 49º - Perturbação Sonora - 0 meses - 3000 PokéCoins
-Art. 50º - Obstrução Facial - 0 meses - 4500 PokéCoins
-Art. 51º - Posse de Objetos Ilegais - 0 meses - 6500 PokéCoins
-Art. 52º - Importunação - 15 meses - 3000 PokéCoins
-Art. 53º - Estabelecimento Irregular - 0 meses - 5000 PokéCoins
-Art. 54º - Batalha Pokémon em Local Proibido - 0 meses - 0 PokéCoins
-Art. 55º - Maus-tratos e Crueldade Pokémon - 80 meses - 10000 PokéCoins
+Art. 46º - Incitação ao Crime - Estimular crime publicamente - 20 meses - 2500 PokéCoins
+Art. 47º - Abrigar fugitivo - Esconder fugitivo - 15 meses - 1500 PokéCoins
+Art. 48º - Perturbação do Sossego - Barulho incômodo - 0 meses - 1000 PokéCoins
+Art. 49º - Perturbação Sonora - Som alto em local proibido - 0 meses - 3000 PokéCoins
+Art. 50º - Obstrução Facial - Máscara que impede identificação - 0 meses - 4500 PokéCoins
+Art. 51º - Posse de Objetos Ilegais - Lockpick ou item ilegal - 0 meses - 6500 PokéCoins
+Art. 52º - Importunação - Comportamento impróprio persistente - 15 meses - 3000 PokéCoins
+Art. 53º - Estabelecimento Irregular - Sem registro ou higiene - 0 meses - 5000 PokéCoins
+Art. 54º - Batalha Pokémon em Local Proibido - Batalha em local proibido - 0 meses - 0 PokéCoins
+Art. 55º - Maus-tratos e Crueldade Pokémon - Forçar batalhas até exaustão ou crueldade - 80 meses - 10000 PokéCoins
 Art. 56º - Abandono de Pokémon - 0 meses - 10000 PokéCoins
 Art. 57º - Omissão de Cuidados e Negligência Pokémon - 0 meses - 20000 PokéCoins
-Art. 58º - Uso de Pokémon para Atividade Criminosa - 20 meses - 3000 PokéCoins
-Art. 60º - Captura e Caça Ilegal - 10 meses - 5000 PokéCoins
+Art. 58º - Uso de Pokémon para Atividade Criminosa - Pokémon auxiliando crime, furto, fuga, dano ou batalha contra PokéGuard - 20 meses - 3000 PokéCoins
+Art. 60º - Captura e Caça Ilegal - Captura em área proibida - 10 meses - 5000 PokéCoins
 Art. 61º - Venda de Pokémon - 30 meses - 20000 PokéCoins
 Art. 61º - Compra de Pokémon - 20 meses - 10000 PokéCoins
 Art. 62º - Contrabando e Tráfico de Itens Raros - 30 meses - 3000 PokéCoins
-Art. 63º - Posse de Itens Restritos ou Falsificação - 40 meses - 1200 PokéCoins
-Art. 64º - Apostas Ilegais e Rinhas - 50 meses - 8000 PokéCoins
-Art. 65º - Clonagem e Experimentação Genética Ilegal - 100 meses - 100000 PokéCoins
+Art. 63º - Posse de Itens Restritos ou Falsificação - Master Ball sem registro, item tático ou falsificado - 40 meses - 1200 PokéCoins
+Art. 64º - Apostas Ilegais e Rinhas - Aposta ou rinha em batalha não oficial - 50 meses - 8000 PokéCoins
+Art. 65º - Clonagem e Experimentação Genética Ilegal - Clonagem, experimento genético ou Pokémon clonado - 100 meses - 100000 PokéCoins
 
 FORMATO OBRIGATÓRIO:
+Retorne SOMENTE este JSON:
+
 {
+  "fatos_identificados": [
+    "fato 1",
+    "fato 2"
+  ],
   "artigos": [
     {
       "artigo": "Art. XX",
       "crime": "Nome do crime",
       "meses": 0,
       "multa": 0,
-      "motivo": "Por que esse artigo foi aplicado"
+      "motivo": "Explique qual trecho/fato do relato justifica este artigo"
     }
   ]
 }
@@ -331,6 +358,7 @@ ${relato}
 
     const textoResposta = resposta.choices[0].message.content;
     const resultado = JSON.parse(textoResposta);
+    resultado.artigos = validarArtigosComRelato(relato, resultado.artigos || []);
 
     res.json(resultado);
 
@@ -342,6 +370,133 @@ ${relato}
     });
   }
 });
+
+function normalizarTexto(texto) {
+  return String(texto || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function contemAlgum(texto, termos) {
+  return termos.some(t => texto.includes(normalizarTexto(t)));
+}
+
+function validarArtigosComRelato(relatoOriginal, artigos) {
+  const texto = normalizarTexto(relatoOriginal);
+
+  return artigos.filter(a => {
+    const artigo = normalizarTexto(a.artigo);
+    const crime = normalizarTexto(a.crime);
+
+    if (artigo.includes("8") || crime.includes("homicidio doloso")) {
+      return contemAlgum(texto, ["matou", "assassinou", "executou", "homicidio doloso", "intencao de matar"]);
+    }
+
+    if (artigo.includes("9") || crime.includes("homicidio culposo")) {
+      return contemAlgum(texto, ["matou sem querer", "sem intencao", "acidentalmente matou", "homicidio culposo"]);
+    }
+
+    if (artigo.includes("10") || crime.includes("funcionario publico")) {
+      return contemAlgum(texto, ["matou pokeguard", "matou policial", "matou oficial", "matou funcionario", "matou medico"]);
+    }
+
+    if (artigo.includes("11") || crime.includes("tentativa de homicidio")) {
+      return contemAlgum(texto, ["tentou matar", "quase matou", "tentativa de homicidio", "atentou contra a vida"]);
+    }
+
+    if (artigo.includes("12") || crime.includes("agressao")) {
+      return contemAlgum(texto, ["agrediu", "bateu", "soco", "chute", "espancou", "atacou fisicamente", "feriu"]);
+    }
+
+    if (artigo.includes("13") || crime.includes("odio")) {
+      return contemAlgum(texto, ["preconceito", "racismo", "discriminacao", "crime de odio"]);
+    }
+
+    if (artigo.includes("14") || crime.includes("sequestro")) {
+      return contemAlgum(texto, ["sequestro", "sequestrou", "carcere", "privou liberdade"]);
+    }
+
+    if (artigo.includes("15") || crime.includes("refem")) {
+      return contemAlgum(texto, ["refem", "refens", "fez refem", "manteve refem"]);
+    }
+
+    if (artigo.includes("17") || crime.includes("ameaca")) {
+      return contemAlgum(texto, ["ameacou", "ameaca", "intimidou"]);
+    }
+
+    if (artigo.includes("18") || crime.includes("ameaca grave")) {
+      return contemAlgum(texto, ["ameacou matar", "ameaca grave", "reincidencia de ameaca"]);
+    }
+
+    if (artigo.includes("19") || crime.includes("furto")) {
+      return contemAlgum(texto, ["furto", "furtou", "subtraiu sem violencia", "pegou sem permissao"]);
+    }
+
+    if (artigo.includes("20") || crime.includes("roubo")) {
+      return contemAlgum(texto, ["roubo", "roubou", "assalto", "assaltou", "subtraiu com violencia", "subtraiu com ameaca"]);
+    }
+
+    if (artigo.includes("21") || crime.includes("tentativa")) {
+      return contemAlgum(texto, ["tentou roubar", "tentativa de roubo", "tentou furtar", "tentativa de furto"]);
+    }
+
+    if (artigo.includes("25") || crime.includes("invasao")) {
+      return contemAlgum(texto, ["casa", "residencia", "propriedade", "terreno", "invadiu", "invasao"]);
+    }
+
+    if (artigo.includes("29") || crime.includes("fuga")) {
+      return contemAlgum(texto, ["fugiu", "fuga", "evadiu", "perseguicao", "ordem de parada", "nao parou", "tentou escapar"]);
+    }
+
+    if (artigo.includes("33") || crime.includes("desacato")) {
+      return contemAlgum(texto, ["desacato", "xingou", "ofendeu", "humilhou", "desrespeitou"]);
+    }
+
+    if (artigo.includes("34") || crime.includes("desobediencia")) {
+      return contemAlgum(texto, ["desobedeceu", "nao obedeceu", "ignorou ordem", "ordem direta"]);
+    }
+
+    if (artigo.includes("35") || crime.includes("resistencia")) {
+      const posDerrota = contemAlgum(texto, ["apos perder", "depois de perder", "apos ser contido", "depois de ser contido", "voz de prisao"]);
+      const recusou = contemAlgum(texto, ["recusou", "nao aceitou", "nao quis ser preso", "continuou fugindo", "tentou escapar", "agrediu apos"]);
+      return posDerrota && recusou;
+    }
+
+    if (artigo.includes("40") || crime.includes("obstrucao")) {
+      return contemAlgum(texto, ["obstruiu", "atrapalhou", "destruiu evidencia", "escondeu prova", "impediu abordagem"]);
+    }
+
+    if (artigo.includes("41") || crime.includes("associacao")) {
+      const grupo = contemAlgum(texto, ["3 individuos", "tres individuos", "grupo", "quadrilha", "organizacao criminosa"]);
+      const crimeBase = contemAlgum(texto, ["roubo", "furto", "fuga", "crime", "assalto"]);
+      return grupo && crimeBase;
+    }
+
+    if (artigo.includes("51") || crime.includes("objetos ilegais")) {
+      return contemAlgum(texto, ["lockpick", "lockpicks", "item ilegal", "itens ilegais", "objeto ilegal"]);
+    }
+
+    if (artigo.includes("58") || crime.includes("pokemon para atividade criminosa")) {
+      const poke = contemAlgum(texto, ["pokemon", "pokémon", "batalha", "batalhou"]);
+      const crimeBase = contemAlgum(texto, ["roubo", "furto", "fuga", "escapar", "crime", "pokeguard"]);
+      return poke && crimeBase;
+    }
+
+    if (artigo.includes("63") || crime.includes("itens restritos")) {
+      return contemAlgum(texto, ["master ball", "item restrito", "itens restritos", "item tatico", "falsificacao"]);
+    }
+
+    if (artigo.includes("65") || crime.includes("clonagem")) {
+      return contemAlgum(texto, ["clonagem", "clonado", "clonou", "genetica", "experimento genetico", "laboratorio ilegal"]);
+    }
+
+    return true;
+  });
+}
 
 app.post("/gerar-pdf", async (req, res) => {
   try {
