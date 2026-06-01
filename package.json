@@ -8,10 +8,10 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "@google/genai": "^1.0.0",
     "@supabase/supabase-js": "^2.45.4",
     "dotenv": "^16.4.7",
     "express": "^4.21.0",
+    "groq-sdk": "^0.9.1",
     "pdfkit": "^0.15.0"
   }
 }
