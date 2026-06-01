@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>PokéGuard IA Penal</title>
+<style>
+body{
+  font-family: Arial, sans-serif;
+  background:#111827;
+  color:white;
+  padding:20px;
+}
+.container{
+  max-width:900px;
+  margin:auto;
+  background:#1f2937;
+  padding:25px;
+  border-radius:14px;
+}
+h1{color:#facc15}
+label{
+  display:block;
+  margin-top:15px;
+  font-weight:bold;
+}
+input,textarea{
+  width:100%;
+  padding:10px;
+  margin-top:5px;
+  border-radius:8px;
+  border:0;
+  box-sizing:border-box;
+}
+textarea{height:180px}
+button{
+  margin-top:15px;
+  padding:12px 18px;
+  border:0;
+  border-radius:8px;
+  background:#facc15;
+  font-weight:bold;
+  cursor:pointer;
+}
+.card{
+  background:#374151;
+  padding:15px;
+  margin-top:12px;
+  border-radius:10px;
+  border-left:5px solid #facc15;
+}
+.total{
+  background:#065f46;
+  padding:15px;
+  margin-top:15px;
+  border-radius:10px;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>PokéGuard IA Penal</h1>
+
+  <label>Nome do suspeito</label>
+  <input id="nome" placeholder="Ex: João Silva">
+
+  <label>RG do suspeito</label>
+  <input id="rg" placeholder="Ex: 12345">
+
+  <label>Relato da ocorrência</label>
+  <textarea id="relato" placeholder="Descreva a ocorrência completa..."></textarea>
+
+  <button onclick="analisar()">Analisar com IA</button>
+
+  <h2>Artigos aplicados</h2>
+  <div id="resultado"></div>
+</div>
+
+<script>
+async function analisar(){
+  const relato = document.getElementById("relato").value;
+  const resultado = document.getElementById("resultado");
+
+  resultado.innerHTML = "<p>Analisando ocorrência com IA...</p>";
+
+  try{
+    const resposta = await fetch("/analisar", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ relato })
+    });
+
+    const dados = await resposta.json();
+
+    if(dados.erro){
+      resultado.innerHTML = "<p>Erro: " + dados.erro + "</p>";
+      return;
+    }
+
+    let totalMeses = 0;
+    let totalMulta = 0;
+
+    resultado.innerHTML = "";
+
+    dados.artigos.forEach(a=>{
+      totalMeses += Number(a.meses || 0);
+      totalMulta += Number(a.multa || 0);
+
+      resultado.innerHTML += `
+        <div class="card">
+          <h3>${a.artigo} - ${a.crime}</h3>
+          <p><b>Prisão:</b> ${a.meses} meses</p>
+          <p><b>Multa:</b> ${Number(a.multa).toLocaleString("pt-BR")} PokéCoins</p>
+          <p><b>Motivo:</b> ${a.motivo}</p>
+        </div>
+      `;
+    });
+
+    resultado.innerHTML += `
+      <div class="total">
+        <h3>Total</h3>
+        <p><b>Prisão total:</b> ${totalMeses} meses</p>
+        <p><b>Multa total:</b> ${totalMulta.toLocaleString("pt-BR")} PokéCoins</p>
+      </div>
+    `;
+
+  }catch(e){
+    resultado.innerHTML = "<p>Erro ao conectar com o servidor.</p>";
+  }
+}
+</script>
+
+</body>
+</html>
