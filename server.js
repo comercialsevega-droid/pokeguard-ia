@@ -358,11 +358,11 @@ app.post("/gerar-pdf", async (req, res) => {
       multa_total
     } = req.body;
 
-    const fundoUrl = "https://raw.githubusercontent.com/djonikipper-lab/Penal/c66302107092104ebf236824e0513ad049c64f70/Fundo%20Penal.png";
-
-    const fundoResponse = await fetch(fundoUrl);
-    const fundoArrayBuffer = await fundoResponse.arrayBuffer();
-    const fundoBuffer = Buffer.from(fundoArrayBuffer);
+    if (!nome || !rg || !relato || !artigos || artigos.length === 0) {
+      return res.status(400).json({
+        erro: "Dados insuficientes para gerar o PDF."
+      });
+    }
 
     const doc = new PDFDocument({
       margin: 40,
@@ -371,14 +371,14 @@ app.post("/gerar-pdf", async (req, res) => {
 
     const buffers = [];
 
-    doc.on("data", buffers.push.bind(buffers));
+    doc.on("data", chunk => buffers.push(chunk));
 
     doc.on("end", () => {
       const pdfData = Buffer.concat(buffers);
 
       res.writeHead(200, {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename=Prisao-${rg}.pdf`,
+        "Content-Disposition": `attachment; filename="Prisao-${rg}.pdf"`,
         "Content-Length": pdfData.length
       });
 
@@ -388,56 +388,85 @@ app.post("/gerar-pdf", async (req, res) => {
     const pageWidth = doc.page.width;
     const pageHeight = doc.page.height;
 
-    doc.image(fundoBuffer, 0, 0, {
-      width: pageWidth,
-      height: pageHeight
-    });
+    // FUNDO DO PDF
+    try {
+      const fundoUrl = "https://raw.githubusercontent.com/djonikipper-lab/Penal/c66302107092104ebf236824e0513ad049c64f70/Fundo%20Penal.png";
+
+      const respostaFundo = await fetch(fundoUrl);
+
+      if (respostaFundo.ok) {
+        const arrayBuffer = await respostaFundo.arrayBuffer();
+        const fundoBuffer = Buffer.from(arrayBuffer);
+
+        doc.image(fundoBuffer, 0, 0, {
+          width: pageWidth,
+          height: pageHeight
+        });
+      }
+    } catch (erroFundo) {
+      console.log("Não foi possível carregar o fundo. PDF será gerado sem fundo.");
+    }
 
     const agora = new Date();
 
+    // Textos menores e sem cabeçalho antigo
+    doc.fillColor("black");
+    doc.font("Helvetica");
+
     doc.y = 170;
-    doc.fontSize(9).fillColor("black");
 
-    doc.text(`Data/Hora da Prisão: ${agora.toLocaleString("pt-BR")}`);
-    doc.moveDown(0.5);
+    doc.fontSize(8);
+    doc.text(`Data/Hora da Prisão: ${agora.toLocaleString("pt-BR")}`, 50, doc.y);
+    doc.moveDown(0.4);
 
-    doc.text(`Nome do Cidadão: ${nome}`);
-    doc.moveDown(0.5);
+    doc.text(`Nome do Cidadão: ${nome}`, 50, doc.y);
+    doc.moveDown(0.4);
 
-    doc.text(`RG: ${rg}`);
-    doc.moveDown(1.4);
+    doc.text(`RG: ${rg}`, 50, doc.y);
+    doc.moveDown(1.1);
 
-    doc.fontSize(11).text("PENA FINAL");
-    doc.moveDown(0.5);
+    doc.fontSize(10).text("PENA FINAL", 50, doc.y);
+    doc.moveDown(0.4);
 
-    doc.fontSize(9);
-    doc.text(`Total de Meses: ${meses_total}`);
-    doc.text(`Multa Final: ${Number(multa_total).toLocaleString("pt-BR")} PokéCoins`);
+    doc.fontSize(8);
+    doc.text(`Total de Meses: ${meses_total}`, 50, doc.y);
+    doc.moveDown(0.3);
+    doc.text(`Multa Final: ${Number(multa_total).toLocaleString("pt-BR")} PokéCoins`, 50, doc.y);
 
-    doc.moveDown(1.3);
+    doc.moveDown(1);
 
-    doc.fontSize(11).text("ARTIGOS APLICADOS");
-    doc.moveDown(0.5);
+    doc.fontSize(10).text("ARTIGOS APLICADOS", 50, doc.y);
+    doc.moveDown(0.4);
 
     artigos.forEach((artigo) => {
-      doc.fontSize(8.5);
+      if (doc.y > 700) {
+        doc.addPage();
 
-      doc.text(`${artigo.artigo} - ${artigo.crime}`);
-      doc.text(`Meses: ${artigo.meses}`);
-      doc.text(`Multa: ${Number(artigo.multa).toLocaleString("pt-BR")} PokéCoins`);
-      doc.text(`Motivo: ${artigo.motivo}`, {
-        width: 500
-      });
+        try {
+          // Segunda página sem fundo para evitar erro
+          doc.fillColor("black");
+        } catch {}
+      }
 
-      doc.moveDown(0.6);
+      doc.fontSize(7.5);
+      doc.text(`${artigo.artigo} - ${artigo.crime}`, 50, doc.y, { width: 500 });
+      doc.moveDown(0.2);
+      doc.text(`Meses: ${artigo.meses} | Multa: ${Number(artigo.multa).toLocaleString("pt-BR")} PokéCoins`, 50, doc.y, { width: 500 });
+      doc.moveDown(0.2);
+      doc.text(`Motivo: ${artigo.motivo}`, 50, doc.y, { width: 500 });
+      doc.moveDown(0.5);
     });
 
     doc.moveDown(0.5);
 
-    doc.fontSize(11).text("RELATO DA OCORRÊNCIA");
-    doc.moveDown(0.5);
+    if (doc.y > 700) {
+      doc.addPage();
+    }
 
-    doc.fontSize(8.5).text(relato, {
+    doc.fontSize(10).text("RELATO DA OCORRÊNCIA", 50, doc.y);
+    doc.moveDown(0.4);
+
+    doc.fontSize(7.5).text(relato, 50, doc.y, {
       align: "justify",
       width: 500
     });
