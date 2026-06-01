@@ -1,16 +1,167 @@
 import express from "express";
 import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
+import { createClient } from "@supabase/supabase-js";
 
 dotenv.config();
 
 const app = express();
 
-app.use(express.json({ limit: "10mb" }));
+app.use(express.json({ limit: "15mb" }));
 app.use(express.static("public"));
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
+});
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
+);
+
+app.get("/health", (req, res) => {
+  res.json({ status: "online" });
+});
+
+app.post("/buscar-cidadao", async (req, res) => {
+  try {
+    const { rg } = req.body;
+
+    const { data: cidadao, error } = await supabase
+      .from("cidadaos")
+      .select("*")
+      .eq("rg", rg)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (!cidadao) {
+      return res.json({
+        encontrado: false,
+        cidadao: null,
+        prisoes: []
+      });
+    }
+
+    const { data: prisoes, error: erroPrisoes } = await supabase
+      .from("prisoes")
+      .select("*")
+      .eq("rg", rg)
+      .order("created_at", { ascending: false });
+
+    if (erroPrisoes) throw erroPrisoes;
+
+    res.json({
+      encontrado: true,
+      cidadao,
+      prisoes: prisoes || []
+    });
+
+  } catch (erro) {
+    console.error("ERRO AO BUSCAR CIDADÃO:", erro);
+    res.status(500).json({ erro: "Erro ao buscar cidadão." });
+  }
+});
+
+app.post("/cadastrar-cidadao", async (req, res) => {
+  try {
+    const { nome, rg, foto_base64 } = req.body;
+
+    if (!nome || !rg) {
+      return res.status(400).json({ erro: "Nome e RG são obrigatórios." });
+    }
+
+    let foto_url = null;
+
+    if (foto_base64) {
+      const base64Data = foto_base64.split(",")[1];
+      const contentType = foto_base64.split(";")[0].split(":")[1] || "image/png";
+      const extensao = contentType.includes("jpeg") ? "jpg" : "png";
+      const fileName = `${rg}-${Date.now()}.${extensao}`;
+
+      const buffer = Buffer.from(base64Data, "base64");
+
+      const { error: uploadError } = await supabase.storage
+        .from("fotos-cidadaos")
+        .upload(fileName, buffer, {
+          contentType,
+          upsert: true
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage
+        .from("fotos-cidadaos")
+        .getPublicUrl(fileName);
+
+      foto_url = publicUrlData.publicUrl;
+    }
+
+    const { data, error } = await supabase
+      .from("cidadaos")
+      .upsert(
+        {
+          nome,
+          rg,
+          foto_url
+        },
+        { onConflict: "rg" }
+      )
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({
+      sucesso: true,
+      cidadao: data
+    });
+
+  } catch (erro) {
+    console.error("ERRO AO CADASTRAR CIDADÃO:", erro);
+    res.status(500).json({ erro: "Erro ao cadastrar cidadão." });
+  }
+});
+
+app.post("/salvar-prisao", async (req, res) => {
+  try {
+    const {
+      cidadao_id,
+      nome,
+      rg,
+      relato,
+      artigos,
+      meses_total,
+      multa_total,
+      oficial
+    } = req.body;
+
+    const { data, error } = await supabase
+      .from("prisoes")
+      .insert({
+        cidadao_id,
+        nome,
+        rg,
+        relato,
+        artigos,
+        meses_total,
+        multa_total,
+        oficial
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({
+      sucesso: true,
+      prisao: data
+    });
+
+  } catch (erro) {
+    console.error("ERRO AO SALVAR PRISÃO:", erro);
+    res.status(500).json({ erro: "Erro ao salvar prisão." });
+  }
 });
 
 app.post("/analisar", async (req, res) => {
@@ -151,5 +302,5 @@ ${relato}
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log("PokéGuard IA com Gemini rodando na porta " + PORT);
+  console.log("PokéGuard IA + Supabase rodando na porta " + PORT);
 });
