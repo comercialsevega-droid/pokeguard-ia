@@ -1,6 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
-import { GoogleGenAI } from "@google/genai";
+import Groq from "groq-sdk";
 import { createClient } from "@supabase/supabase-js";
 import PDFDocument from "pdfkit";
 
@@ -11,8 +11,8 @@ const app = express();
 app.use(express.json({ limit: "25mb" }));
 app.use(express.static("public"));
 
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY,
 });
 
 const supabase = createClient(
@@ -124,11 +124,7 @@ app.post("/cadastrar-cidadao", async (req, res) => {
     const { data, error } = await supabase
       .from("cidadaos")
       .upsert(
-        {
-          nome,
-          rg,
-          foto_url
-        },
+        { nome, rg, foto_url },
         { onConflict: "rg" }
       )
       .select()
@@ -144,7 +140,7 @@ app.post("/cadastrar-cidadao", async (req, res) => {
   } catch (erro) {
     console.error("ERRO AO CADASTRAR CIDADÃO:", erro);
     res.status(500).json({
-      erro: "Erro ao cadastrar cidadão. Verifique se o bucket fotos-cidadaos permite upload público."
+      erro: "Erro ao cadastrar cidadão. Verifique as permissões do bucket fotos-cidadaos."
     });
   }
 });
@@ -225,11 +221,11 @@ app.post("/analisar", async (req, res) => {
     const prompt = `
 Você é a IA Penal oficial da PokéGuard, uma polícia de cidade RP Pokémon.
 
-Sua função é ler o relato da ocorrência, entender o contexto e aplicar TODOS os artigos cabíveis.
+Leia o relato da ocorrência e aplique TODOS os artigos cabíveis.
 
 REGRAS PRINCIPAIS:
 - Aplique múltiplos artigos quando couber.
-- Não aplique apenas um artigo se houver vários fatos no relato.
+- Nunca aplique apenas um artigo se houver vários fatos no relato.
 - Entenda linguagem informal, abreviações, erros de escrita e diferentes formas de narrar.
 - Use somente os artigos listados abaixo.
 - Não invente artigos.
@@ -242,10 +238,9 @@ REGRAS PRINCIPAIS:
 - Se houver lockpick, item ilegal ou objeto ilegal, aplique Posse de Objetos Ilegais.
 - Se houver clonagem, experimento genético, laboratório ilegal ou Pokémon clonado, aplique Clonagem e Experimentação Genética Ilegal.
 - Se houver fuga de ordem de parada, perseguição ou tentativa de escapar da abordagem, aplique Fuga de Ordem de Parada.
-- Retorne SOMENTE JSON válido, sem texto antes ou depois.
+- Retorne SOMENTE JSON válido, sem markdown.
 
 ARTIGOS DISPONÍVEIS:
-
 Art. 8º - Homicídio Doloso - 50 meses - 4500 PokéCoins
 Art. 9º - Homicídio Culposo - 40 meses - 4000 PokéCoins
 Art. 10º - Homicídio contra Funcionário Público - 60 meses - 10000 PokéCoins
@@ -309,40 +304,41 @@ FORMATO OBRIGATÓRIO:
       "crime": "Nome do crime",
       "meses": 0,
       "multa": 0,
-      "motivo": "Explique claramente por que esse artigo foi aplicado"
+      "motivo": "Por que esse artigo foi aplicado"
     }
   ]
 }
 
-RELATO DA OCORRÊNCIA:
+RELATO:
 ${relato}
 `;
 
-    const resposta = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
-      contents: prompt,
-      config: {
-        temperature: 0.1,
-        responseMimeType: "application/json"
-      }
+    const resposta = await groq.chat.completions.create({
+      model: "llama-3.1-8b-instant",
+      messages: [
+        {
+          role: "system",
+          content: "Você responde somente JSON válido, sem markdown."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      temperature: 0.1,
+      response_format: { type: "json_object" }
     });
 
-    let textoResposta = resposta.text || "";
-
-    textoResposta = textoResposta
-      .replace(/```json/g, "")
-      .replace(/```/g, "")
-      .trim();
-
+    const textoResposta = resposta.choices[0].message.content;
     const resultado = JSON.parse(textoResposta);
 
     res.json(resultado);
 
   } catch (erro) {
-    console.error("ERRO NA IA:", erro);
+    console.error("ERRO NA IA GROQ:", erro);
 
     res.status(500).json({
-      erro: "Erro ao analisar ocorrência com a IA."
+      erro: "Erro ao analisar ocorrência com a IA Groq."
     });
   }
 });
@@ -355,7 +351,8 @@ app.post("/gerar-pdf", async (req, res) => {
       relato,
       artigos,
       meses_total,
-      multa_total
+      multa_total,
+      foto_url
     } = req.body;
 
     if (!nome || !rg || !relato || !artigos || artigos.length === 0) {
@@ -364,15 +361,10 @@ app.post("/gerar-pdf", async (req, res) => {
       });
     }
 
-    const doc = new PDFDocument({
-      margin: 40,
-      size: "A4"
-    });
-
+    const doc = new PDFDocument({ margin: 40, size: "A4" });
     const buffers = [];
 
     doc.on("data", chunk => buffers.push(chunk));
-
     doc.on("end", () => {
       const pdfData = Buffer.concat(buffers);
 
@@ -388,10 +380,8 @@ app.post("/gerar-pdf", async (req, res) => {
     const pageWidth = doc.page.width;
     const pageHeight = doc.page.height;
 
-    // FUNDO DO PDF
     try {
       const fundoUrl = "https://raw.githubusercontent.com/djonikipper-lab/Penal/c66302107092104ebf236824e0513ad049c64f70/Fundo%20Penal.png";
-
       const respostaFundo = await fetch(fundoUrl);
 
       if (respostaFundo.ok) {
@@ -403,13 +393,12 @@ app.post("/gerar-pdf", async (req, res) => {
           height: pageHeight
         });
       }
-    } catch (erroFundo) {
-      console.log("Não foi possível carregar o fundo. PDF será gerado sem fundo.");
+    } catch {
+      console.log("Fundo não carregado.");
     }
 
     const agora = new Date();
 
-    // Textos menores e sem cabeçalho antigo
     doc.fillColor("black");
     doc.font("Helvetica");
 
@@ -418,13 +407,11 @@ app.post("/gerar-pdf", async (req, res) => {
     doc.fontSize(8);
     doc.text(`Data/Hora da Prisão: ${agora.toLocaleString("pt-BR")}`, 50, doc.y);
     doc.moveDown(0.4);
-
     doc.text(`Nome do Cidadão: ${nome}`, 50, doc.y);
     doc.moveDown(0.4);
-
     doc.text(`RG: ${rg}`, 50, doc.y);
-    doc.moveDown(1.1);
 
+    doc.moveDown(1.1);
     doc.fontSize(10).text("PENA FINAL", 50, doc.y);
     doc.moveDown(0.4);
 
@@ -434,18 +421,12 @@ app.post("/gerar-pdf", async (req, res) => {
     doc.text(`Multa Final: ${Number(multa_total).toLocaleString("pt-BR")} PokéCoins`, 50, doc.y);
 
     doc.moveDown(1);
-
     doc.fontSize(10).text("ARTIGOS APLICADOS", 50, doc.y);
     doc.moveDown(0.4);
 
     artigos.forEach((artigo) => {
       if (doc.y > 700) {
         doc.addPage();
-
-        try {
-          // Segunda página sem fundo para evitar erro
-          doc.fillColor("black");
-        } catch {}
       }
 
       doc.fontSize(7.5);
@@ -471,6 +452,31 @@ app.post("/gerar-pdf", async (req, res) => {
       width: 500
     });
 
+    doc.addPage();
+    doc.fontSize(14).text("FOTO DO SUSPEITO", { align: "center" });
+
+    if (foto_url) {
+      try {
+        const fotoResponse = await fetch(foto_url);
+        if (fotoResponse.ok) {
+          const fotoArrayBuffer = await fotoResponse.arrayBuffer();
+          const fotoBuffer = Buffer.from(fotoArrayBuffer);
+
+          doc.moveDown(2);
+          doc.image(fotoBuffer, 180, 140, {
+            width: 240,
+            height: 300
+          });
+        } else {
+          doc.moveDown(2).fontSize(10).text("Foto não disponível.", { align: "center" });
+        }
+      } catch {
+        doc.moveDown(2).fontSize(10).text("Erro ao carregar foto do suspeito.", { align: "center" });
+      }
+    } else {
+      doc.moveDown(2).fontSize(10).text("Nenhuma foto cadastrada.", { align: "center" });
+    }
+
     doc.end();
 
   } catch (erro) {
@@ -485,5 +491,5 @@ app.post("/gerar-pdf", async (req, res) => {
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log("PokéGuard IA + Supabase rodando na porta " + PORT);
+  console.log("PokéGuard IA + Supabase + Groq rodando na porta " + PORT);
 });
